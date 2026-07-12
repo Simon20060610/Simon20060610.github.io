@@ -30,6 +30,8 @@ jobs:
           cache-dependency-path: astro-blog/package-lock.json
       - run: npm ci
       - run: npm run build
+      - name: Preserve Astro underscore assets on GitHub Pages
+        run: touch dist/.nojekyll
       - name: Publish generated site to main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
