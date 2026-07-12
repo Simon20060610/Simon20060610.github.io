@@ -1,0 +1,31 @@
+---
+import Header from '../components/Header.astro';
+import '../styles/global.css';
+import { site } from '../data/site';
+const { title = site.title, description = site.description, image = '/images/avatar.jpg', type = 'website' } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const socialImage = new URL(image, Astro.site);
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f4efe6" />
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" type="application/rss+xml" title={site.title} href="/rss.xml" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={type} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={socialImage} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <div class="shell"><Header /><main><slot /></main>
+      <footer>© {new Date().getFullYear()} SimonChen · 用 Astro 构建 · <a href="/rss.xml">RSS</a></footer>
+    </div>
+  </body>
+</html>

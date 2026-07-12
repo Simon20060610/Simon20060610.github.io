@@ -1,0 +1,18 @@
+---
+import BaseLayout from './BaseLayout.astro';
+const { post, headings } = Astro.props;
+const { title, description, pubDate, updatedDate, category, tags } = post.data;
+const format = (date: Date) => date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+---
+<BaseLayout title={`${title} | SimonChen`} description={description} type="article">
+  <article class="article">
+    <header class="article-header">
+      <a class="eyebrow" href={`/categories/${encodeURIComponent(category)}/`}>{category}</a>
+      <h1>{title}</h1><p class="lead">{description}</p>
+      <div class="post-meta"><time datetime={pubDate.toISOString()}>发布于 {format(pubDate)}</time>{updatedDate && <time datetime={updatedDate.toISOString()}>更新于 {format(updatedDate)}</time>}</div>
+      <div class="tag-list">{tags.map((tag: string) => <a href={`/tags/${encodeURIComponent(tag)}/`}>#{tag}</a>)}</div>
+    </header>
+    {headings.length > 2 && <details class="toc"><summary>文章目录</summary><ol>{headings.filter((h: any) => h.depth <= 3).map((h: any) => <li class={`depth-${h.depth}`}><a href={`#${h.slug}`}>{h.text}</a></li>)}</ol></details>}
+    <div class="prose"><slot /></div>
+  </article>
+</BaseLayout>

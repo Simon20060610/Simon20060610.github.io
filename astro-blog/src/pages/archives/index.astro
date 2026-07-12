@@ -1,0 +1,5 @@
+---
+import { getCollection } from 'astro:content'; import BaseLayout from '../../layouts/BaseLayout.astro';
+const posts=(await getCollection('posts',({data})=>!data.draft)).sort((a,b)=>b.data.pubDate.valueOf()-a.data.pubDate.valueOf());
+---
+<BaseLayout title="归档 | SimonChen"><section class="page-head"><p class="eyebrow">Timeline</p><h1>文章归档</h1><p>沿时间回看学习与项目进展。</p></section><ol class="timeline">{posts.map(post=><li><time>{post.data.pubDate.toLocaleDateString('zh-CN')}</time><a href={`/${post.data.legacyPath}/`}>{post.data.title}</a><span>{post.data.category}</span></li>)}</ol></BaseLayout>

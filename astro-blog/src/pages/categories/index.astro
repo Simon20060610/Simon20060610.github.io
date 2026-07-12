@@ -1,0 +1,5 @@
+---
+import { getCollection } from 'astro:content'; import BaseLayout from '../../layouts/BaseLayout.astro';
+const posts = await getCollection('posts', ({data}) => !data.draft); const counts = Object.entries(posts.reduce((a,p) => ({...a,[p.data.category]:(a[p.data.category]||0)+1}), {} as Record<string,number>));
+---
+<BaseLayout title="分类 | SimonChen"><section class="page-head"><p class="eyebrow">Topics</p><h1>文章分类</h1><p>按技术方向浏览已发布的实践记录。</p></section><div class="term-grid">{counts.map(([name,count]) => <a href={`/categories/${encodeURIComponent(name)}/`}><strong>{name}</strong><span>{count} 篇文章 →</span></a>)}</div></BaseLayout>
