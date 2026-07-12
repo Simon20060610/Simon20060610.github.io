@@ -5,7 +5,7 @@ db.json
 hexo-server*.log
 start-hexo-server.cmd
 node_modules/
-public/
+/public/
 .deploy*/
 themes/*/.git/
 themes/*/.git-backup/

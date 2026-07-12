@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://simon20060610.github.io/sitemap-index.xml
