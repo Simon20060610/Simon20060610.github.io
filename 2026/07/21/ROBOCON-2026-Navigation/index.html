@@ -1,0 +1,545 @@
+<!DOCTYPE html><html lang="zh-CN"> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="从 Odin 定位、规则场地图、箱体点云定位到四足单轴运动控制，完整复盘 2026 ROBOCON 导航系统的设计。"><meta name="theme-color" content="#f4efe6"><link rel="icon" href="/favicon.svg"><link rel="canonical" href="https://simon20060610.github.io/2026/07/21/ROBOCON-2026-Navigation/"><link rel="alternate" type="application/rss+xml" title="观测记录" href="/rss.xml"><meta property="og:title" content="2026 ROBOCON 导航算法开发后日谈 | SimonChen"><meta property="og:description" content="从 Odin 定位、规则场地图、箱体点云定位到四足单轴运动控制，完整复盘 2026 ROBOCON 导航系统的设计。"><meta property="og:type" content="article"><meta property="og:url" content="https://simon20060610.github.io/2026/07/21/ROBOCON-2026-Navigation/"><meta property="og:image" content="https://simon20060610.github.io/images/avatar.jpg"><title>2026 ROBOCON 导航算法开发后日谈 | SimonChen</title><link rel="stylesheet" href="/_astro/_slug_.CTlOeIQq.css"></head> <body> <div class="shell"><header class="site-header"> <a class="brand" href="/"><img src="/images/avatar.jpg" alt=""><span>观测记录</span></a> <nav aria-label="主导航"> <a href="/">首页</a><a href="/archives/">归档</a><a href="/categories/">分类</a><a href="/tags/">标签</a><a href="/about/">关于</a> </nav> </header><main> <article class="article"> <header class="article-header"> <a class="eyebrow" href="/categories/ROBOCON/">ROBOCON</a> <h1>2026 ROBOCON 导航算法开发后日谈</h1><p class="lead">从 Odin 定位、规则场地图、箱体点云定位到四足单轴运动控制，完整复盘 2026 ROBOCON 导航系统的设计。</p> <div class="post-meta"><time datetime="2026-07-21T00:00:00.000Z">发布于 2026年7月21日</time></div> <div class="tag-list"><a href="/tags/ROBOCON/">#ROBOCON</a><a href="/tags/Robotics/">#Robotics</a><a href="/tags/Navigation/">#Navigation</a><a href="/tags/Localization/">#Localization</a><a href="/tags/Path%20Planning/">#Path Planning</a></div> </header> <details class="toc"><summary>文章目录</summary><ol><li class="depth-2"><a href="#前言">前言</a></li><li class="depth-2"><a href="#一比赛任务如何被翻译成导航问题">一、比赛任务如何被翻译成导航问题</a></li><li class="depth-2"><a href="#二工程流程">二、工程流程</a></li><li class="depth-2"><a href="#三定位利用odin1">三、定位（利用Odin1）</a></li><li class="depth-3"><a href="#31-导航真正使用的状态量">3.1 导航真正使用的状态量</a></li><li class="depth-3"><a href="#32-启动顺序">3.2 启动顺序</a></li><li class="depth-3"><a href="#33-坐标系约定">3.3 坐标系约定</a></li><li class="depth-2"><a href="#四规则场地图">四、规则场地图</a></li><li class="depth-3"><a href="#41-箱子网格">4.1 箱子网格</a></li><li class="depth-3"><a href="#42-返还区">4.2 返还区</a></li><li class="depth-2"><a href="#五点云箱体定位利用-2--4-的建图结构">五、点云箱体定位，利用 2 × 4 的建图结构</a></li><li class="depth-3"><a href="#51-roi-与前表面轮廓">5.1 ROI 与前表面轮廓</a></li><li class="depth-3"><a href="#52--4-列模板搜索">5.2  4 列模板搜索</a></li><li class="depth-3"><a href="#53-两级时序稳定">5.3 两级时序稳定</a></li><li class="depth-3"><a href="#54-吸取前不是无限闭环而是有限次脉冲修正">5.4 吸取前不是无限闭环，而是有限次脉冲修正</a></li><li class="depth-2"><a href="#六路径规划实际生成的是带语义的航段">六、路径规划：实际生成的是带语义的航段</a></li><li class="depth-3"><a href="#61-走近箱子">6.1 走近箱子</a></li><li class="depth-3"><a href="#62-正面取箱后的回程">6.2 正面取箱后的回程</a></li><li class="depth-3"><a href="#63-背面取第二箱后的回程26赛季未实现自动化但是代码写了手动选择第二排箱子第二次去抓的代码">6.3 背面取第二箱后的回程（26赛季未实现自动化，但是代码写了手动选择第二排箱子第二次去抓的代码）</a></li><li class="depth-3"><a href="#64-减速带">6.4 减速带</a></li><li class="depth-2"><a href="#七运动控制比例控制死区和分时单轴动作">七、运动控制，比例控制、死区和分时单轴动作</a></li><li class="depth-3"><a href="#71-固定坐标误差到机体误差">7.1 固定坐标误差到机体误差</a></li><li class="depth-3"><a href="#72-轴向控制律">7.2 轴向控制律</a></li><li class="depth-3"><a href="#73-为什么不混合前进横移和转向">7.3 为什么不混合前进、横移和转向</a></li><li class="depth-3"><a href="#74-步态控制器还做了什么">7.4 步态控制器还做了什么</a></li><li class="depth-2"><a href="#八到达判定进入阈值不等于任务完成">八、到达判定：进入阈值不等于任务完成</a></li><li class="depth-3"><a href="#81-箱前到达">8.1 箱前到达</a></li><li class="depth-3"><a href="#82-返还区最终到达">8.2 返还区最终到达</a></li><li class="depth-2"><a href="#九状态机与安全门防止节点都在但任务不安全">九、状态机与安全门：防止“节点都在，但任务不安全”</a></li><li class="depth-3"><a href="#91-双重速度开关">9.1 双重速度开关</a></li><li class="depth-3"><a href="#92-正式开始前的-ready-握手">9.2 正式开始前的 READY 握手</a></li><li class="depth-3"><a href="#93-运行时保护">9.3 运行时保护</a></li><li class="depth-2"><a href="#十开发过程中真正解决的几个问题">十、开发过程中真正解决的几个问题</a></li><li class="depth-3"><a href="#101-一开始就横移边缘列路线不安全">10.1 一开始就横移，边缘列路线不安全</a></li><li class="depth-3"><a href="#102-把-yaw-和平移混在一起底层实际上只执行一个">10.2 把 yaw 和平移混在一起，底层实际上只执行一个</a></li><li class="depth-3"><a href="#103-yaw-漂移改变了左右前后的判断">10.3 yaw 漂移改变了“左、右、前、后”的判断</a></li><li class="depth-3"><a href="#104-回程时不能直接从箱前斜穿到返还区">10.4 回程时不能直接从箱前斜穿到返还区</a></li><li class="depth-3"><a href="#105-同位置航点会被旧-arrived-消息跳过">10.5 同位置航点会被旧 arrived 消息跳过</a></li><li class="depth-3"><a href="#106-进入阈值后还有余动">10.6 进入阈值后还有余动</a></li><li class="depth-2"><a href="#十一测试策略重点验证不会走错而不只是能算出数">十一、测试策略：重点验证“不会走错”，而不只是“能算出数”</a></li><li class="depth-2"><a href="#十二反思代码冗余过度保护与-ai-的不合理使用">十二、反思：代码冗余、过度保护与 AI 的不合理使用</a></li><li class="depth-3"><a href="#121-启动流程不合理配置导致的启动慢">12.1 启动流程不合理配置导致的启动慢</a></li><li class="depth-3"><a href="#122-同一信息在多层重复表达">12.2 同一信息在多层重复表达</a></li><li class="depth-3"><a href="#123-哪些保护是必要的哪些已经过度">12.3 哪些保护是必要的，哪些已经过度</a></li><li class="depth-3"><a href="#124-ai-在这类机器人代码中容易被怎样用错">12.4 AI 在这类机器人代码中容易被怎样用错</a></li><li class="depth-3"><a href="#125-更合理的-ai-协作方式">12.5 更合理的 AI 协作方式</a></li><li class="depth-2"><a href="#十三odin-三种模式应该选哪一种">十三、Odin 三种模式应该选哪一种</a></li><li class="depth-2"><a href="#十四当前方案的边界与后续优化">十四、当前方案的边界与后续优化</a></li></ol></details> <div class="prose"><h2 id="前言">前言</h2>
+<p>在 2026 赛季 ROBOCON 的备赛过程中，我主要负责机器人的导航算法。</p>
+<p>在最初的备赛过程中，我尝试过使用欧式聚类的方式来根据点云识别筛选出箱子，认为这样鲁棒性会更高，但是后来实测实测发现效果并不好，由于Odin本身与箱子成一个俯视，地面的干扰变得非常大，且调阈值非常难受，所以最终采用直接根据比赛规则建图，直接按照规则把地图手动建立，因此整个工程就变成了：</p>
+<ul>
+<li>Odin1 负责输出点云和板载融合里程计；</li>
+<li>固定规则场地图负责把“第几行第几列箱子、送到哪个返还区”变成绝对停车点；</li>
+<li>点云几何定位负责在箱前提供真实箱体位置，服务最后的小范围对准；</li>
+<li>路线规划不是栅格搜索，而是根据比赛结构生成一组有明确语义的安全航点；</li>
+<li>控制器不同时混合前进、横移和转向，而是顺应四足底层的单轴锁定，分阶段执行纯前进、纯横移和原地转向；</li>
+</ul>
+<h2 id="一比赛任务如何被翻译成导航问题">一、比赛任务如何被翻译成导航问题</h2>
+<p>导航面对的任务可以简化为以下循环：</p>
+<ol>
+<li>机器人从出发区进入场地；</li>
+<li>根据 OCR 和 YOLO 的结果确定目标箱子的行、列以及对应返还区；</li>
+<li>导航到箱子前的粗停车点；</li>
+<li>使用实时箱体点云做吸取前精对准；</li>
+<li>机械臂吸取并举起箱子；</li>
+<li>机器人携箱沿安全通道前往指定返还区；</li>
+<li>在返还区前完成位置和航向的稳定确认；</li>
+<li>放箱，继续第二轮任务（未实现，时间不够）。</li>
+</ol>
+<p>从算法角度看，它有几个很强的先验条件：场地尺寸固定，箱子只出现在 2 × 4 网格中，返还区只有四个，任务目标也不是任意坐标。这意味着“在整个平面上搜索任意无碰路径”不是最迫切的问题；更重要的是坐标不能错、箱子列不能认反、携箱回程不能横穿箱阵、状态切换不能被延迟消息误触发。</p>
+<p>这也是后来整个导航方案逐渐从“一个接近箱子的预览节点”演变成“规则地图 + 航点状态机”的原因。</p>
+<h2 id="二工程流程">二、工程流程</h2>
+<p>最终数据流可以概括为：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>OCR / YOLO</span></span>
+<span class="line"><span>    │  目标行列、返还区编号</span></span>
+<span class="line"><span>    ▼</span></span>
+<span class="line"><span>task_manager_node</span></span>
+<span class="line"><span>    │</span></span>
+<span class="line"><span>    ├──────────────► field_map_node</span></span>
+<span class="line"><span>    │                 │  /navigation/field_target_pose（绝对停车点，odom）</span></span>
+<span class="line"><span>    │                 │  /navigation/field_map_status（当前任务航段）</span></span>
+<span class="line"><span>    │                 ▼</span></span>
+<span class="line"><span>    │             box_nav_preview_node</span></span>
+<span class="line"><span>    │                 │  /navigation/preview_path（可视化）</span></span>
+<span class="line"><span>    │                 │  /navigation/nav_status（闭环状态）</span></span>
+<span class="line"><span>    │                 └──────────────► /cmd_vel</span></span>
+<span class="line"><span>    │</span></span>
+<span class="line"><span>    └─► box_grid_locator_node ◄──── /odin1/cloud_render</span></span>
+<span class="line"><span>                        │  /navigation/target_pose（实时箱体位置，雷达局部系）</span></span>
+<span class="line"><span>                        ▼</span></span>
+<span class="line"><span>                 pregrasp_align_node</span></span>
+<span class="line"><span>                        └────────────► /cmd_vel</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>/odin1/odometry ───────────────► box_nav_preview_node</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>/cmd_vel ─► quadruped_gait_controller ─► 12 个关节命令</span></span></code></pre>
+<p>这里最容易混淆的是两种目标：</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>目标话题</th><th>来源</th><th>坐标性质</th><th>用途</th></tr></thead><tbody><tr><td><code>/navigation/field_target_pose</code></td><td>固定场地图</td><td><code>odom</code> 下的绝对停车点</td><td>箱前和返还区之间的粗导航</td></tr><tr><td><code>/navigation/target_pose</code></td><td>Odin 点云中的箱体几何定位</td><td>传感器当前局部坐标</td><td>粗导航到达后的吸取前精对准</td></tr></tbody></table>
+<p>正式启动时，粗导航节点默认订阅前者，吸取前对准节点订阅后者。也就是说，系统没有让噪声较大的箱体检测结果持续牵着整段全局运动走，而是把规则先验用于长距离移动，把真实观测留给最后几十厘米的对准。这种分层是当前架构中非常关键的一点。</p>
+<h2 id="三定位利用odin1">三、定位（利用Odin1）</h2>
+<h3 id="31-导航真正使用的状态量">3.1 导航真正使用的状态量</h3>
+<p><code>box_nav_preview_node.py</code> 只从 <code>/odin1/odometry</code> 读取三个平面量：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>robot_pose = (x, y, yaw)</span></span></code></pre>
+<p>四元数通过标准公式转换为 yaw。导航代码没有订阅腿部编码器来积分机体位移，也没有把独立 WIT IMU 接入 <code>robot_localization</code>，更没有在本仓库实现 EKF。虽然启动系统可以拉起独立 IMU 节点，但当前导航闭环的位姿来源仍然是 Odin1 的板载算法。</p>
+<p>这点必须写清楚：本文中的“定位算法”主要是 Odin 输出坐标的使用、复位和坐标约束，而不是我们自己从原始点云、相机和 IMU 数据重新做一遍融合。</p>
+<h3 id="32-启动顺序">3.2 启动顺序</h3>
+<p>场地图的所有绝对坐标都依赖一个约定：机器人位于出发区中线、朝向场地 <code>+X</code> 时，Odin 的里程计原点必须与入口侧近墙对齐。</p>
+<p>一键启动脚本为此采用了严格顺序：</p>
+<ol>
+<li>先让四足底盘站稳；</li>
+<li>启动 Odin 驱动，但此时不启动地图和导航；</li>
+<li>在底盘稳定的情况下完成 OCR、YOLO 和目标锁定；</li>
+<li>确认 <code>/odin1/cloud_render</code> 已有数据；</li>
+<li>调用 <code>set_param.sh algo_reset 1</code>；</li>
+<li>等待驱动消费 <code>/tmp/odin_command.txt</code>，再留出稳定时间；</li>
+<li>确认复位后的 <code>/odin1/odometry</code>；</li>
+<li>最后才启动场地图、点云箱定位和导航。</li>
+</ol>
+<p>这么做是防止导航节点在 Odin 复位前读到旧 odom 并锁定错误目标。导航进程在复位前根本不存在，因此复位前状态无法泄漏到它的内部计划中。</p>
+<p>但是当前这个流程明显复杂冗余，导致启动流程时间被拖得很长，这里值得优化，由于我在装箱前两小时才确定启动流程，所以这个架构缺乏高效性，27赛季的算法负责人需要提前思考，提起设计好启动流程。</p>
+<h3 id="33-坐标系约定">3.3 坐标系约定</h3>
+<p>固定场地图使用 <code>odom</code>：</p>
+<ul>
+<li>原点位于出发区前边界，也就是入口侧近墙；</li>
+<li>机器人身体初始中心约为 <code>x=-0.50 m, y=0</code>；</li>
+<li><code>+X</code> 从入口指向场地内部；</li>
+<li><code>+Y</code> 是机器人面向场地时的左侧；</li>
+<li><code>yaw=0</code> 表示朝向 <code>+X</code>；</li>
+<li>右墙为 <code>y=-2.00 m</code>，左墙为 <code>y=+2.00 m</code>；</li>
+<li>远墙为 <code>x=6.00 m</code>。</li>
+</ul>
+<p>需要注意，场地图里的停车距离以 Odin/odometry 原点为参考，不等价于机器狗外壳或机械臂末端到箱子的距离。因此 <code>standoff</code> 的标定必须结合 Odin 在机身上的安装位置理解（这里很关键，整个运动流程是根据Odin的位置来标定的）。</p>
+<p>对于局部传感器目标，代码支持把它投影到固定坐标系。若当前机器人位姿为 <code>(xr, yr, ψ)</code>，传感器前向安装偏移为 <code>ds</code>，局部目标为 <code>(xl, yl)</code>，则：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>xg = xr + cos(ψ) · (xl + ds) - sin(ψ) · yl</span></span>
+<span class="line"><span>yg = yr + sin(ψ) · (xl + ds) + cos(ψ) · yl</span></span></code></pre>
+<p>不过正式粗导航使用的 <code>field_target_pose</code> 已经是 <code>odom</code> 下的 <code>stop_pose</code>，这段投影主要服务直接使用局部感知目标的调试模式。</p>
+<h2 id="四规则场地图">四、规则场地图</h2>
+<p><code>field_map.yaml</code> 是整个任务导航的几何真值来源。它不是点云建出来的占据栅格，而是根据规则尺寸和现场测量编写的参数化地图。</p>
+<h3 id="41-箱子网格">4.1 箱子网格</h3>
+<p>箱区为 2 行 × 4 列。根据今年的规则，当前配置为：</p>
+<ul>
+<li>第一排箱子中心 <code>x=1.425 m</code>；</li>
+<li>第二排与第一排中心距 <code>0.85 m</code>，因此第二排中心 <code>x=2.275 m</code>；</li>
+<li>四列从左到右的 <code>y</code> 为 <code>1.275、0.425、-0.425、-1.275 m</code>；</li>
+<li>箱体边长 <code>0.25 m</code>；</li>
+<li>第一排箱子前表面为 <code>x=1.30 m</code>；</li>
+<li>正面取箱时，Odin 停车点距离箱心 <code>0.175 m</code>，因此第一排停车 <code>x=1.25 m</code>，即箱体前表面外 <code>0.05 m</code>；</li>
+<li>背面取第二箱时使用 <code>0.275 m</code> 的后侧停车距离，并把目标 yaw 设为朝向箱子。</li>
+</ul>
+<p>箱子中心的生成公式很简单：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>box_x(row) = 1.425 + 0.85 · row</span></span>
+<span class="line"><span>box_y(col) = 1.275 - 0.85 · col</span></span></code></pre>
+<p>另外需要注意的是，今年在到场后才知道会有左右两种对称式布局，因此需要做好临场完善的准备。且不能简单地镜像地图，列方向一旦与相机画面或右侧场地镜像关系混淆，机器人就会朝错误的箱子移动。因此仓库中专门保留了列顺序、左右场地和类别到返还区语义的测试。</p>
+<h3 id="42-返还区">4.2 返还区</h3>
+<p>四个返还区中心共同位于 <code>x=5.20 m</code>。右侧比赛场地按规则语义编号后的中心 <code>y</code> 为：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>R0 食品（绿）: -1.20 m</span></span>
+<span class="line"><span>R1 工具（灰）: -0.40 m</span></span>
+<span class="line"><span>R2 仪器（蓝）: +0.40 m</span></span>
+<span class="line"><span>R3 药品（红）: +1.20 m</span></span></code></pre>
+<p>从 START 朝 <code>+X</code> 看，物理上从左到右是红、蓝、灰、绿，但数组索引始终保持规则语义 <code>R0...R3</code>，没有因为场地镜像而改变类别编号。</p>
+<p>返还区边长 <code>0.40 m</code>，停车点 <code>x=4.98 m</code>。返还区前边缘在 <code>x=5.00 m</code>，所以 Odin 最终停在边缘外 <code>0.02 m</code>。这个值非常激进，是考虑了机械臂的动作才如此设置的。</p>
+<h2 id="五点云箱体定位利用-2--4-的建图结构">五、点云箱体定位，利用 2 × 4 的建图结构</h2>
+<p><code>box_grid_locator_node.cpp</code> 订阅 <code>/odin1/cloud_render</code>，处理周期为 <code>0.20 s</code>。点云回调本身只保留最新一帧，实际处理由独立定时器完成；传感器 QoS 只保留一帧，避免处理跟不上时积压旧点云。</p>
+<p>处理管线如下：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>原始点云</span></span>
+<span class="line"><span>  → ROI 裁剪</span></span>
+<span class="line"><span>  → 去除机身附近点</span></span>
+<span class="line"><span>  → 1.5 cm 体素降采样</span></span>
+<span class="line"><span>  → 前表面候选提取</span></span>
+<span class="line"><span>  → 4 列模板匹配 / 行布局拟合</span></span>
+<span class="line"><span>  → 布局时序稳定</span></span>
+<span class="line"><span>  → 目标格时序稳定</span></span>
+<span class="line"><span>  → 发布箱体局部位姿</span></span></code></pre>
+<h3 id="51-roi-与前表面轮廓">5.1 ROI 与前表面轮廓</h3>
+<p>默认 ROI 为：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>x ∈ [0.30, 4.50] m</span></span>
+<span class="line"><span>y ∈ [-3.00, 3.00] m</span></span>
+<span class="line"><span>z ∈ [-0.32, 0.05] m</span></span></code></pre>
+<p>机身附近 <code>x≤0.60 m 且 |y|≤0.60 m</code> 的点会被滤掉。默认候选提取模式为 <code>front_profile</code>：只取指定高度范围内的点，沿 Y 轴按 <code>0.05 m</code> 分箱，每个分箱使用 X 的 20% 分位数估计前表面，而不是直接取最小值，以降低离群点影响。相邻 Y 分箱只有在横向连续且前表面 X 接近时才会组成一个候选段。</p>
+<h3 id="52--4-列模板搜索">5.2  4 列模板搜索</h3>
+<p>单个几何簇很容易被地面残点、箱间结构或遮挡破坏，所以代码进一步利用“同一排有四个、列间距约 0.85 m”的先验进行模板搜索。</p>
+<p>算法以 <code>0.05 m</code> 搜索步长扫描可能的前表面 X，以约 <code>0.085 m</code> 的步长扫描第一列 Y。对每个模板位置检查四个列窗：</p>
+<ul>
+<li>窗内点数是否足够；</li>
+<li>Y 展宽和分箱数是否足够；</li>
+<li>Z 高度跨度是否像一个箱体立面；</li>
+<li>X 深度是否没有过厚；</li>
+<li>上部点数是否足够；</li>
+<li>窗口外保护带中的点是否过多；</li>
+<li>实际最近 X 与模板前表面是否接近。</li>
+</ul>
+<p>至少三列匹配且总点数达标时模板才有效。评分优先匹配箱子数量，其次考虑点数、X 误差和更近的有效行。没有匹配到的格子默认不会凭空推断，因为正式配置中 <code>infer_missing_boxes=false</code>。</p>
+<h3 id="53-两级时序稳定">5.3 两级时序稳定</h3>
+<p>布局级稳定器允许最多 5 帧短时缺失，使用 <code>α=0.35</code> 做平滑。若新布局相对旧布局变化过大，需要连续 3 帧确认后才切换。</p>
+<p>目标格还有单独的跟踪器：目标需要连续 3 帧确认才发布，短时缺失可保持 5 帧；若新位置与旧位置相差超过 <code>0.45 m</code>，跟踪器会重置而不是把两次不同目标平滑到一起。</p>
+<p>这套方法的定位很明确：它为“当前能看到的近排四列箱子”提供稳定局部目标，而不是建立全场三维地图。代码中的候选统一标记为 <code>row=0</code>，所以它本质上不是完整的 2 × 4 全局箱位定位器；全局行列仍由规则地图和视觉任务选择负责。这个限制在未来扩展第二排实时精对准时需要特别处理。</p>
+<h3 id="54-吸取前不是无限闭环而是有限次脉冲修正">5.4 吸取前不是无限闭环，而是有限次脉冲修正</h3>
+<p>粗导航到达后，<code>pregrasp_align_node</code> 才获得 <code>/cmd_vel</code> 控制权。它还会检查场地图是否处于 <code>box</code> 或 <code>box_back</code>，防止回程和放箱航点误启动吸取前对准。节点不活跃时不会持续发布零速度，否则它会与仍在工作的粗导航争抢同一个话题并把机器人“刹住”。</p>
+<p>正式 launch 使用的目标箱体局部位置为：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>desired_box_x = 0.05 m</span></span>
+<span class="line"><span>desired_box_y = -0.02 m</span></span>
+<span class="line"><span>x_tolerance  = 0.025 m</span></span>
+<span class="line"><span>y_tolerance  = 0.025 m</span></span></code></pre>
+<p>点云目标必须位于 <code>x∈[0.02, 1.20] m</code> 且 <code>|y|≤0.80 m</code> 的有效窗口内。即使目标有效，允许底盘微调的误差范围也只有前后 <code>0.16 m</code>、横向 <code>0.10 m</code>；超出范围时节点选择停车，等待人工检查或机械臂补偿（是否可以考虑将到达后的误差加入机械臂的动作补偿？），而不是让局部感知接管一段长距离运动。</p>
+<p>当前正式配置关闭了 yaw 微调（实测在26赛季使用力位控的情况下，由于多种因素，斜向接近后的调整误差效果差，因此在接近箱子过程中采用了纯线性位移），因此控制优先级是先横移、再前后。每次只发布 <code>0.35 s</code> 的单轴小脉冲，随后发布零速度并等待 <code>0.70 s</code>，让四足余动和点云都稳定后再重新判断。最多只允许三次脉冲，达到上限仍未对准就停住，不会在箱前无限振荡。</p>
+<p>目标连续三帧进入吸取窗口后，节点发布 <code>/navigation/pregrasp_ready=true</code>。自动触发吸取在正式 launch 中关闭，真正的吸取命令仍由任务管理器在关闭精对准并完成额外停稳等待后发出。这样，感知节点只负责证明“位置已适合吸取”，不越权决定机械臂动作。</p>
+<h2 id="六路径规划实际生成的是带语义的航段">六、路径规划：实际生成的是带语义的航段</h2>
+<p><code>/navigation/preview_path</code> 看起来像一条 ROS <code>nav_msgs/Path</code>，但当前控制器不会沿着它逐点追踪。这个 Path 主要用于 RViz：通常只包含起点和停车点，Marker 还会连接到目标物中心。</p>
+<p>真正决定运动的是 <code>field_map_node</code> 发布的当前停车点，以及 <code>box_nav_preview_node</code> 根据 <code>field_map_status</code> 选择的控制策略。因此更准确的说法不是“全局路径规划器”，而是“参数化航点生成器 + 航段状态机”。</p>
+<h3 id="61-走近箱子">6.1 走近箱子</h3>
+<p>从出发区去第一排箱子时，机器人可能需要到最左或最右列。如果一开始就横移，容易在狭窄入口附近贴墙或切入箱阵。代码因此设置了 <code>far_forward_body_x_threshold=0.70 m</code>：</p>
+<ul>
+<li>当箱前停车点仍在前方 0.70 m 以上时，只允许沿场地 <code>+X</code> 前进；</li>
+<li>即使边缘列横向误差达到 <code>1.275 m</code>，也先清出入口；</li>
+<li>进入较开阔区域后才执行左右横移；</li>
+<li>最后再前后接近停车点并做末端航向修正。</li>
+</ul>
+<p>这个策略对应测试 <code>test_front_box_edge_column_goes_forward_before_lateral</code>，说明它不是偶然的 if 分支，而是被明确固化的路线政策。</p>
+<h3 id="62-正面取箱后的回程">6.2 正面取箱后的回程</h3>
+<p>右侧场地为每个箱列配置了相邻安全通道：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>box col:     0      1      2       3</span></span>
+<span class="line"><span>box y:     1.275  0.425 -0.425  -1.275</span></span>
+<span class="line"><span>lane y:    1.700  0.850  0.000  -0.850</span></span>
+<span class="line"><span>横移距离:   0.425  0.425  0.425   0.425 m</span></span></code></pre>
+<p>正面取箱后生成四个语义航点：</p>
+<ol>
+<li><code>return_route_enter_lane</code>：保持当前取箱 X，只横移 0.425 m 进入相邻通道；</li>
+<li><code>return_route_align_lane_heading</code>：位置不变，原地对齐 <code>yaw=0</code>；</li>
+<li><code>return_route_drive_lane</code>：沿通道直行到 <code>x=4.75 m</code>；</li>
+<li><code>return</code>：最后前进 <code>0.23 m</code> 并横移到目标返还区停车点 <code>x=4.98 m</code>。</li>
+</ol>
+<p>“进入通道”和“对齐航向”故意使用同一个坐标。为了避免上一航点的延迟 <code>arrived</code> 直接跳过对齐，场地图会同时检查 <code>field_active</code> 标签，并在同位置航点之间强制至少约 1 秒的零速稳定期。</p>
+<p>进入通道前还有一道横移保护：当前 Y 到通道 Y 的距离超过 <code>0.75 m</code> 时，导航发布零速度并报告 <code>return_entry_lateral_guard_stop</code>，拒绝横穿箱阵。（由于规则规定不能暴力运输箱子，为防止行进过程中撞到箱子，作此保护）</p>
+<h3 id="63-背面取第二箱后的回程26赛季未实现自动化但是代码写了手动选择第二排箱子第二次去抓的代码">6.3 背面取第二箱后的回程（26赛季未实现自动化，但是代码写了手动选择第二排箱子第二次去抓的代码）</h3>
+<p>从返还区侧抓取第二排箱子时，路线不同：</p>
+<ol>
+<li>在背面取箱点原地转身朝 <code>+X</code>；</li>
+<li>保持当前列 Y，直接沿场地纵向通过减速带；</li>
+<li>到返还区前方后再做最终横移。</li>
+</ol>
+<p>这样避免了举箱后再穿回箱阵。<code>box_back</code> 阶段还会把固定场地误差取反，使机器人转身后仍按场地轴理解前后和左右，不让 yaw 漂移改变航段语义。</p>
+<h3 id="64-减速带">6.4 减速带</h3>
+<h4 id="这次没啥用只是建图作用">这次没啥用，只是建图作用</h4>
+<p>配置中记录了减速带中心 <code>x=3.50 m</code>、尺寸约 <code>0.35 × 4.00 × 0.05 m</code>，但当前它只用于 RViz 和路线风险判断参考。代码没有基于减速带区域自动切换速度，也没有生成代价地图。</p>
+<p>同样，系统没有动态障碍检测、局部绕障或在线重规划。如果比赛区域突然出现人或非预期物体，当前正确的安全响应是上层停机，而不是期望导航自动绕开。</p>
+<h2 id="七运动控制比例控制死区和分时单轴动作">七、运动控制，比例控制、死区和分时单轴动作</h2>
+<h3 id="71-固定坐标误差到机体误差">7.1 固定坐标误差到机体误差</h3>
+<p>常规情况下，目标在 <code>odom</code> 下的误差 <code>(dx, dy)</code> 会根据当前 yaw 转到机体系：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>body_x =  cos(ψ) · dx + sin(ψ) · dy</span></span>
+<span class="line"><span>body_y = -sin(ψ) · dx + cos(ψ) · dy</span></span></code></pre>
+<p>但箱区是特例：</p>
+<ul>
+<li><code>box</code> 阶段直接使用 <code>(dx, dy)</code>，锁定场地轴；</li>
+<li><code>box_back</code> 阶段使用 <code>(-dx, -dy)</code>；</li>
+<li>其他阶段才使用随当前 yaw 旋转的机体误差。</li>
+</ul>
+<p>这样做的原因很简单，箱区横移应该由“目标在场地左边还是右边”决定，而不是让 Odin 的几度 yaw 漂移把一个纯横向误差投影成前后混合误差。</p>
+<h3 id="72-轴向控制律">7.2 轴向控制律</h3>
+<p>前后、横向和角速度都使用带死区、限幅和最小动作幅值的比例控制。以单轴平移为例：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>若 |e| ≤ tolerance:</span></span>
+<span class="line"><span>    command = 0</span></span>
+<span class="line"><span>否则:</span></span>
+<span class="line"><span>    command = clamp(k · e, -vmax, vmax)</span></span>
+<span class="line"><span>    若 0 &#x3C; |command| &#x3C; vmin:</span></span>
+<span class="line"><span>        command = sign(command) · vmin</span></span></code></pre>
+<p>角速度同理。最小速度是为了克服四足步态的小指令无效区；代价是接近目标时不能无限降低速度，所以必须依靠死区、分阶段动作和停稳确认抑制来回振荡。这也是本赛季使用力位控缺陷导致的</p>
+<p>正式 launch 的导航参数为：</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>参数</th><th align="right">数值</th></tr></thead><tbody><tr><td>控制周期</td><td align="right"><code>0.10 s</code></td></tr><tr><td>前后/横向/yaw 增益</td><td align="right"><code>0.60 / 0.35 / 1.50</code></td></tr><tr><td>前后指令范围</td><td align="right"><code>0.50 ~ 0.80</code></td></tr><tr><td>横向指令范围</td><td align="right"><code>0.40 ~ 0.60</code></td></tr><tr><td>角速度指令范围</td><td align="right"><code>0.50 ~ 1.00</code></td></tr><tr><td>常规 X/Y 停车容差</td><td align="right"><code>0.03 / 0.03 m</code></td></tr><tr><td>常规 yaw 容差</td><td align="right"><code>0.05 rad</code></td></tr><tr><td>目标话题超时</td><td align="right"><code>2.0 s</code></td></tr></tbody></table>
+<p>这些值不能简单理解成机器人一定达到对应的真实 m/s。底层会把 <code>/cmd_vel</code> 除以自己的最大值，转成步态幅度比例，而不是用实测底盘速度做闭环跟踪。</p>
+<p>另外，底层真机配置的最大前后和横向速度都是 <code>0.5</code>，因此导航发出的前后上限 <code>0.8</code> 和横向上限 <code>0.6</code> 会在步态控制器中被截断到 <code>0.5</code>。当前真正可调的有效范围由上下两层共同决定，调参时只看导航 launch 会得到错误结论。</p>
+<h3 id="73-为什么不混合前进横移和转向">7.3 为什么不混合前进、横移和转向</h3>
+<p>真机步态配置启用了：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="yaml"><code><span class="line"><span style="color:#85E89D">cmd_vel_axis_lock</span><span style="color:#E1E4E8">: </span><span style="color:#79B8FF">true</span></span></code></pre>
+<p>底层把 X、Y、yaw 分别归一化，然后只保留幅值最大的一个主动作；相同幅值时转向优先，其次横移，最后前后。也就是说，即使上层同时发布 <code>linear.x</code> 和 <code>angular.z</code>，底层也不会执行真正的弧线跟踪。</p>
+<p>因此上层控制器主动采用分时动作：</p>
+<ul>
+<li>yaw 误差大时只原地转向；</li>
+<li>yaw 回到阈值内后只前进；</li>
+<li>到达纵向位置后再横移；</li>
+<li>最后单独做航向对齐。</li>
+</ul>
+<p>回程长通道中虽然计算了类似前视的航向偏置：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>heading_bias = atan2(lateral_error, lookahead)</span></span></code></pre>
+<p>其中前视距离为 <code>1.20 m</code>、偏置限幅为 <code>±0.10 rad</code>，但执行仍是“纯转向 / 纯前进”两相切换。yaw 超过 <code>0.08 rad</code> 时进入原地恢复，回到约 <code>0.04 rad</code> 才退出，形成滞回，避免在阈值附近每个周期反复切换。</p>
+<h3 id="74-步态控制器还做了什么">7.4 步态控制器还做了什么</h3>
+<p><code>quadruped_gait_controller</code> 对 <code>/cmd_vel</code> 做了多层保护：</p>
+<ul>
+<li>拒绝 <code>NaN</code> 和无穷值；</li>
+<li>X、Y、yaw 分别限幅；</li>
+<li><code>0.5 s</code> 未收到新命令就自动归零；</li>
+<li>非零速度会退出一次性动作命令，必要时先从低趴恢复站立；</li>
+<li>指令经 3 × 3 混合矩阵和实车补偿项处理；</li>
+<li>三个运动轴都有斜率和加速度限制；</li>
+<li>最终生成四条腿的关节轨迹，再输出 12 个关节的 MIT <code>[position, velocity, torque_ff, kp, kd]</code> 命令。</li>
+</ul>
+<p>所以导航层输出的不是轮式底盘可以精确积分的速度，而是四足步态的运动意图。理解这一层差异，是后续所有路线设计和调参的前提。</p>
+<h2 id="八到达判定进入阈值不等于任务完成">八、到达判定：进入阈值不等于任务完成</h2>
+<p>箱前粗导航和返还区最终停车采用不同严格程度。</p>
+<h3 id="81-箱前到达">8.1 箱前到达</h3>
+<p>箱前阶段只要位置与必要的末端航向进入阈值，就锁存 <code>arrived</code>。任务管理器随后关闭粗导航，将 <code>/cmd_vel</code> 交给 <code>pregrasp_align_node</code>，使用实时箱体点云完成最后小范围修正。</p>
+<p>这是有意的分工：粗导航负责把机器人可靠送到箱子附近，不要求规则地图精确到吸盘可直接吸取。</p>
+<h3 id="82-返还区最终到达">8.2 返还区最终到达</h3>
+<p>返还区放箱前不能仅依赖一次采样。导航要求：</p>
+<ul>
+<li><code>|body_x| ≤ 0.03 m</code>；</li>
+<li><code>|body_y| ≤ 0.03 m</code>；</li>
+<li>yaw 误差先由终点航向控制收敛到 <code>0.05 rad</code> 内；</li>
+<li>上述条件连续保持 <code>0.8 s</code>。</li>
+</ul>
+<p>连续确认函数内部还保留了 <code>0.12 rad</code> 的候选保护门限，但在正式返还区控制链中，前面的 <code>0.05 rad</code> 终点 yaw 门限更严格，因此实际进入到达确认前必须先满足后者。任一误差在确认期间超限，计时立即清零。即使已经进入 <code>arrived</code>，如果之后位置或 yaw 超过更宽的退出阈值，代码会取消到达锁存并重新对准。</p>
+<p>任务管理器还会再次核对：导航目标与场地图最终 approach 的距离是否不超过 <code>0.08 m</code>、机体位置误差模长是否不超过 <code>0.08 m</code>、yaw 是否在 <code>4°</code> 内，并再连续稳定 <code>0.8 s</code>。只有两层都确认后才进入机械臂放箱阶段。</p>
+<h2 id="九状态机与安全门防止节点都在但任务不安全">九、状态机与安全门：防止“节点都在，但任务不安全”</h2>
+<h3 id="91-双重速度开关">9.1 双重速度开关</h3>
+<p>导航只有同时满足以下条件才会产生运动：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>publish_cmd_vel == true</span></span>
+<span class="line"><span>AND</span></span>
+<span class="line"><span>nav_enabled == true</span></span></code></pre>
+<p><code>publish_cmd_vel</code> 是启动关节电机接受动作的开关，适合预览；<code>nav_enabled</code> 是运行时话题开关，由任务管理器控制。任意一个为 false，导航都只发布路径和状态，或持续发布零速度。</p>
+<h3 id="92-正式开始前的-ready-握手">9.2 正式开始前的 READY 握手</h3>
+<p>OCR 和 YOLO 可以提前完成，但视觉选中目标不等于机器人立刻运动。准备阶段结束后，任务管理器进入 <code>prepared</code>，保持：</p>
+<ul>
+<li>视觉模式为 off；</li>
+<li>粗导航和精对准都禁用；</li>
+<li>目标行列和返还区已锁定；</li>
+<li>机械臂未持箱。</li>
+</ul>
+<p>导航晚启动后，任务管理器继续检查：</p>
+<ul>
+<li>已收到导航状态；</li>
+<li>导航确认 <code>publish_cmd_vel=true</code>；</li>
+<li>导航确认 <code>nav_enabled=false</code>；</li>
+<li>场地图当前阶段和活动目标都是 <code>box</code>；</li>
+<li>场地图箱子行列与任务目标一致；</li>
+<li>返还区编号一致；</li>
+<li><code>/navigation/nav_enable</code> 确实存在订阅者。</li>
+</ul>
+<p>全部通过后才打印唯一的 <code>[READY]</code>。在 READY 前误发的开始指令会被忽略且不排队，在看到 READY 后必须重新发送，简单来说就是，发车前先launch全部然后等待裁判指令再发车。</p>
+<h3 id="93-运行时保护">9.3 运行时保护</h3>
+<p>运行中还包括以下安全行为：</p>
+<ul>
+<li>禁用导航时立即发布零速度；</li>
+<li>固定目标超过 <code>2.0 s</code> 未刷新时停车；</li>
+<li>没有 odom 时不运动；</li>
+<li>进入回程通道的横移过大时拒绝执行；</li>
+<li>导航报告 fatal 状态时任务管理器关闭粗导航和精对准；</li>
+<li>状态切换时比较航点语义，忽略上一航点的延迟到达消息；</li>
+<li><code>/cmd_vel</code> 超时后底层再次归零；</li>
+<li>已经吸住箱子后发生故障，安全停机保持吸附，不会为了“复位状态”主动掉箱。</li>
+</ul>
+<p>安全不是某一个急停分支，而是从配置、启动顺序、状态握手到控制超时的一串防线。</p>
+<p>这里的安全保护均由AI完成，这也是今年我认为最冗余的部分之一，但是由于时间问题，再由ai构建后没有时间去精简</p>
+<h2 id="十开发过程中真正解决的几个问题">十、开发过程中真正解决的几个问题</h2>
+<p>从仓库的提交历史和备份目录可以看出，这套导航经历过自适应地图、远距离只前进、回程路线、横移优先、强制 yaw 恢复、分阶段回程、横移偏航补偿、场地轴锁定等多轮迭代。最终留下来的设计基本都对应一个具体工程问题。</p>
+<h3 id="101-一开始就横移边缘列路线不安全">10.1 一开始就横移，边缘列路线不安全</h3>
+<p>单纯按“横向误差优先”控制时，去左右边缘箱会在启动区附近做大幅横移。最终改成：第一箱阶段先沿 <code>+X</code> 清出入口，剩余前向距离小于 <code>0.70 m</code> 后才横移。这个策略只作用于正面第一箱，不改变背面第二箱和回程策略。</p>
+<h3 id="102-把-yaw-和平移混在一起底层实际上只执行一个">10.2 把 yaw 和平移混在一起，底层实际上只执行一个</h3>
+<p>早期很容易按全向底盘直觉同时发 X、Y、yaw，但真机的 <code>cmd_vel_axis_lock</code> 会丢弃较小轴。上层如果不知道这个事实，就会以为自己在做连续闭环，实际上动作序列由幅值竞争随机决定。最终导航显式拆成纯转、纯前进、纯横移，并为切换增加滞回。</p>
+<h3 id="103-yaw-漂移改变了左右前后的判断">10.3 yaw 漂移改变了“左、右、前、后”的判断</h3>
+<p>常规机体系误差变换会让 yaw 进入 X/Y 控制。如果在箱阵附近只允许沿规则场地轴移动，这种耦合反而危险。最终箱区采用 odom 轴锁定，背面取箱采用反向 odom 轴锁定，把场地语义固定下来。</p>
+<h3 id="104-回程时不能直接从箱前斜穿到返还区">10.4 回程时不能直接从箱前斜穿到返还区</h3>
+<p>用一个最终目标点做闭环时，机器人可能选择最直接的横移方向穿过箱阵。最终将回程拆成“进邻近通道—原地对齐—通道直行—末端横移”，并在配置加载和运行时都检查横移距离。</p>
+<h3 id="105-同位置航点会被旧-arrived-消息跳过">10.5 同位置航点会被旧 arrived 消息跳过</h3>
+<p>进入通道和原地对齐的坐标相同，只是目标 yaw 和航段语义不同。ROS 话题异步到达时，上一航点的 <code>arrived</code> 可能在场地图切换后才被收到。最终通过 <code>field_active</code> 身份匹配和同位置稳定等待解决，而不是只看一个模糊的 arrived 布尔量。</p>
+<h3 id="106-进入阈值后还有余动">10.6 进入阈值后还有余动</h3>
+<p>四足步态不是理想速度源，零指令发出后仍可能有姿态恢复和机械余动。最终返还区到达改成连续 0.8 秒确认，并允许到达后漂移重新捕获。</p>
+<h2 id="十一测试策略重点验证不会走错而不只是能算出数">十一、测试策略：重点验证“不会走错”，而不只是“能算出数”</h2>
+<p>仓库中的导航测试主要覆盖策略不变量：</p>
+<ul>
+<li>固定场地的墙距、箱子前表面和返还区几何是否符合配置；</li>
+<li>左右场地的类别物理顺序是否正确；</li>
+<li>每列箱子到相邻回程通道是否都是 <code>0.425 m</code>；</li>
+<li>旧的错误右场地镜像是否会被拒绝；</li>
+<li>通道是否在墙内并满足净空；</li>
+<li>第一箱边缘列是否一定先前进再横移；</li>
+<li>回程通道是否使用纯转/纯前进滞回；</li>
+<li>同位置航点是否能抵抗延迟到达消息；</li>
+<li>返还区是否必须连续稳定并在漂移后重新捕获；</li>
+<li>任务管理器是否会在订阅链、目标或安全状态不一致时拒绝放行。</li>
+</ul>
+<p>这类测试的共同目标是验证状态机和几何约束，而不是证明真实机器人一定达到某个误差。后者仍然必须通过 bag、实测卷尺和重复任务统计完成。</p>
+<p>建议后续至少记录以下数据：</p>
+<ul>
+<li>Odin 复位后静止 60 秒的 X/Y/yaw 漂移；</li>
+<li>从出发区到四个边缘箱位的最终误差；</li>
+<li>单次纯前进、纯横移、原地转向的实际位移/角度与指令关系；</li>
+<li>穿越减速带前后的 odom 跳变和机身姿态扰动；</li>
+<li>返还区 <code>0.8 s</code> 稳定确认被重置的次数；</li>
+<li>每个任务阶段耗时以及超时分布；</li>
+<li>正常点云、局部遮挡和短时丢帧下目标跟踪的发布率；</li>
+<li>完整单箱、双箱任务成功率及失败原因分类。</li>
+</ul>
+<h2 id="十二反思代码冗余过度保护与-ai-的不合理使用">十二、反思：代码冗余、过度保护与 AI 的不合理使用</h2>
+<p>前面的章节主要解释了算法实现的思路和框架，但这次比赛暴露的问题也很明显，过度依赖AI：当前代码已经出现明显的复杂度债务。这里的批评不是说保护越少越好，也不是看到长文件就断言代码一定差，而是追问三个问题：同一事实是否被表达了多次、保护是否有唯一责任边界、每一层新增的复杂度是否有实测收益。</p>
+<h3 id="121-启动流程不合理配置导致的启动慢">12.1 启动流程不合理配置导致的启动慢</h3>
+<p>27赛季在前期（最好是规则基本确定后一周内）就必须讨论好代码框架，否则后期开发流程会严重混乱，分工不明确不合理。同时探索学习RM、RC开源工程，根据赛前准备时间时长，确定一键launch启动流程。</p>
+<h3 id="122-同一信息在多层重复表达">12.2 同一信息在多层重复表达</h3>
+<p>当前系统中，有些重复是必要的纵深防御。例如导航失联时上层发零速度、底层再用 <code>cmd_vel</code> 看门狗归零，这两层分别应对逻辑故障和通信故障，不能简单删除。</p>
+<p>但另一些重复已经开始制造多状态源问题：</p>
+<ul>
+<li>“是否允许运动”同时受启动脚本的 READY、任务管理器阶段、导航 enable、<code>publish_cmd_vel</code>、目标时效和底层超时影响；</li>
+<li>“是否到达”既由导航节点判定，又被任务管理器用目标位置、姿态、语义身份和稳定时间再次确认；</li>
+<li>当前任务目标同时存在于场地图的 active 状态、导航目标话题、任务管理器内部索引和延迟消息身份中；</li>
+<li>真实运行参数既有节点默认值，又有 launch 覆盖值和 YAML 配置，某些上层速度甚至会再次被下层限幅；</li>
+<li>节点之间大量使用布尔量和字符串状态组合表达阶段，导致每个消费者都要重新解释“这些状态同时为真意味着什么”。</li>
+</ul>
+<p>重复状态的危险并不只是代码多。假设四层中有一层漏掉状态更新，机器人通常不会错误运动，而是静默拒绝运动；这看似安全，却会在赛场上表现成难以定位的“所有节点都活着，但就是不走”。反过来，如果两个模块对同一个布尔量的时序语义理解不同，也可能出现上一阶段的成功消息被下一阶段消费。</p>
+<p>应保留不同故障域之间的纵深防御，但把业务事实收敛为唯一来源。例如：任务管理器唯一拥有任务阶段；场地图唯一拥有航点语义；安全监督器唯一发布运动许可；导航器只报告结构化的 <code>goal_id + controller_state + error</code>，不再让多个节点猜测一组布尔量。</p>
+<h3 id="123-哪些保护是必要的哪些已经过度">12.3 哪些保护是必要的，哪些已经过度</h3>
+<p>我认为以下保护应当考虑：</p>
+<ul>
+<li>导航禁用或目标超时立即停车；</li>
+<li>底层独立的 <code>cmd_vel</code> 看门狗；</li>
+<li>READY 前不缓存人工开始命令；</li>
+<li>航点身份校验，防止延迟 <code>arrived</code> 越级；</li>
+<li>携箱故障时保持吸附；</li>
+<li>回程通道墙距、箱体净空和最大横移的配置期验证；</li>
+<li>最终放置前对位置、姿态和连续稳定时间做比粗导航更严格的确认。</li>
+</ul>
+<p>这些保护分别覆盖通信丢失、异步消息、机械安全和不可逆任务动作，风险与成本是匹配的。</p>
+<p>可能过度的部分主要不是某一个 <code>if</code>，而是多个合理保护叠加后没有统一预算：</p>
+<ol>
+<li><strong>连续确认被层层串联。</strong> 点云定位要经过切换确认和平滑，精对准又要求连续有效帧，粗导航和任务管理器还分别进行稳定等待。单看每层都合理，串联后却会累计出不可预测的等待时间。</li>
+<li><strong>超时分散且缺少时序模型。</strong> 底层 <code>0.5 s</code>、精对准目标 <code>0.6 s</code>、导航目标 <code>2.0 s</code> 等超时分别存在。一次 CPU 抖动或点云处理延迟可能同时触发多层状态变化，但代码没有统一描述谁先恢复、谁需要重新授权。</li>
+<li><strong>失效关闭过多但原因不可观察。</strong> 多重 gate 能降低误动概率，却提高拒动概率。如果只发布一个笼统的 fatal/disabled 状态，现场无法快速知道是目标过期、阶段不符、身份不符，还是订阅链未建立。</li>
+<li><strong>用更多阈值修补状态边界。</strong> grace、hold、confirm、settle、retry、reset distance 和多组容差可以压住单个复现案例，但阈值之间的关系没有被统一证明，容易形成“改好 A 又破坏 B”的参数耦合。</li>
+<li><strong>调试兼容逻辑进入正式路径。</strong> preview、固定目标、视觉目标、正向/反向控制和多种控制模式共同留在大节点里，使正式比赛实际使用的窄路径被大量未启用分支包围。</li>
+</ol>
+<p>判断是否“过度保护”可以采用一个简单标准：每项保护都应写明它针对的故障、触发条件、恢复责任、最坏附加延迟和对应测试。如果说不清这五项，它更可能是一次问题之后堆上的补丁，而不是经过设计的安全机制。</p>
+<p>推荐为整条任务建立统一的时间预算。例如规定感知最多等待多少、控制稳定最多等待多少、机械动作最多等待多少，再从总预算向各层分配，而不是让每个节点各自选择一个“看起来安全”的超时。同时发布结构化的 inhibit reason，使操作员能区分“安全停车”和“程序卡死”。</p>
+<h3 id="124-ai-在这类机器人代码中容易被怎样用错">12.4 AI 在这类机器人代码中容易被怎样用错</h3>
+<p>AI 最适合帮助枚举边界条件、生成测试骨架、解释日志和执行机械性重构，不适合在缺少实车数据时替人决定控制结构或阈值。当前代码暴露出的几个矛盾，正好说明“代码可以生成”不等于“物理系统已经理解”：</p>
+<ul>
+<li>上层一度可以同时计算 X、Y、yaw 指令，但底层 axis lock 最终只保留一个轴；如果只看 ROS 消息和公式，这段控制似乎完整，放到真实执行链后语义已经改变；</li>
+<li>上层配置允许比 <code>0.5 m/s</code> 更高的线速度，底层却再次裁剪到 <code>0.5 m/s</code>，说明参数是在局部文件中设定，而没有沿调用链核对实际生效值；</li>
+<li>把 <code>Path</code> 发布出来很容易被描述成“路径规划与跟踪”，实际上它只是离散航点预览，控制器并不跟踪一条稠密轨迹；</li>
+<li>看到 Odin 支持 SLAM 或重定位，AI 很容易建议“切到更高级模式提高精度”，却忽略当前代码没有消费 <code>map → odom</code>；</li>
+<li>面对一个失败案例，AI 很擅长迅速增加一个状态、计数器、超时或特殊分支，却不一定主动删除被新设计替代的旧逻辑。</li>
+</ul>
+<p>这些不是语法错误，因此编译、启动甚至单次成功都未必能发现。它们属于系统契约错误：每个局部模块看起来合理，组合后的物理含义却不一致。</p>
+<p>不合理的 AI 使用通常有三种表现。</p>
+<p>第一种是<strong>用生成量代替问题建模</strong>。没有先画清数据流、坐标系、状态所有权和下层执行约束，就直接让 AI “补全一个更健壮的导航节点”，结果往往是参数更多、保护更多、文件更长。</p>
+<p>第二种是<strong>把自然语言上的完整当成工程上的完整</strong>。AI 会自然地补上异常处理、日志、兼容模式和可配置项，但真实比赛只运行其中一条路径。未经过 bag 和真机验证的兼容性不是能力，而是额外状态空间。</p>
+<p>第三种是<strong>连续打补丁而不做收敛重构</strong>。仓库中的多个阶段备份说明系统经历了高频策略变化。快速试验本身没有问题，问题是试验成功后没有及时删除旧分支、合并重复判断、冻结参数来源并补充回归测试。AI 把一次修改的成本降得很低，也因此更容易让团队低估长期维护成本。</p>
+<h3 id="125-更合理的-ai-协作方式">12.5 更合理的 AI 协作方式</h3>
+<p>后续继续使用 AI 时，我会采用更严格的顺序：</p>
+<ol>
+<li><strong>先让 AI 读完整执行链。</strong> 从目标话题一直追到 12 个关节命令，列出坐标系、限幅、axis lock、超时和状态所有者，再允许提出修改。</li>
+<li><strong>一次修改只对应一个可验证假设。</strong> 例如“边缘列先前进能降低入口横移风险”，而不是笼统地要求“优化导航稳定性”。</li>
+<li><strong>要求最小差异。</strong> 新增保护前先搜索是否已有同类 gate；新增参数前先说明为什么现有参数不能表达；新增状态前先说明它的唯一所有者。</li>
+<li><strong>让 AI 同时提交删除清单。</strong> 每加入一条替代策略，都要检查哪些旧分支、旧参数、旧 launch 覆盖和旧测试已经失效。</li>
+<li><strong>用数据决定阈值。</strong> AI 可以编写 rosbag 统计脚本，但不能凭语言模型的“常见经验”决定四足机器人的速度、余动距离和稳定时间。</li>
+<li><strong>把物理不变量写成测试。</strong> 包括一次只执行一个轴、目标与 odom 同 frame、返还通道不穿箱、携箱故障不释放、上层指令不超过下层有效范围。</li>
+<li><strong>以 Git 保存实验。</strong> 不再为每次 AI 修改复制一套源码目录，避免旧实现重新进入上下文。</li>
+<li><strong>赛前冻结正式路径。</strong> 将比赛使用的参数组合导出为一份可追溯配置，关闭未验证模式；AI 后续提出的改动进入独立分支和回放验证，不直接叠到赛场版本。</li>
+</ol>
+<p>AI 在这个项目中真正应该承担的角色，是加速“阅读—提出假设—生成测试—比较数据—做最小修改”这一闭环，而不是不断把新的看似合理的代码堆进控制链。机器人最终是否安全、是否准确，仍然必须由坐标关系、消息时序、bag 数据和实车重复实验共同回答。</p>
+<h2 id="十三odin-三种模式应该选哪一种">十三、Odin 三种模式应该选哪一种</h2>
+<p>《Odin1 快速启动 1.4.0》给出的三种模式是：</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="right"><code>custom_map_mode</code></th><th>模式</th><th>手册定义</th></tr></thead><tbody><tr><td align="right"><code>0</code></td><td>里程计模式</td><td>地图坐标系与里程计坐标系使用同一坐标系</td></tr><tr><td align="right"><code>1</code></td><td>SLAM 模式</td><td>在里程计基础上增加回环检测和地图保存</td></tr><tr><td align="right"><code>2</code></td><td>重定位模式</td><td>加载指定 <code>.bin</code> 先验地图，成功后发布 <code>map → odom</code> TF；失败时退回 odom 并继续尝试</td></tr></tbody></table>
+<p><strong>对当前这套算法，最合适的是里程计模式，也就是 <code>custom_map_mode=0</code>。</strong></p>
+<ol>
+<li>场地图的 <code>frame_id</code> 是 <code>odom</code>，所有箱子、通道和返还区坐标都以赛前 <code>algo_reset</code> 后的原点为基准；</li>
+<li>导航节点直接订阅 <code>/odin1/odometry</code>，固定 frame 写成 <code>odom</code>；</li>
+<li>启动脚本专门确保地图和导航只在 Odin 复位后创建；</li>
+<li>比赛路线短、场地固定，单次任务不需要在线保存地图；</li>
+<li>控制器没有处理回环修正造成的位姿跳变；</li>
+<li>代码没有 TF2 查询，也没有把 <code>map → odom</code> 应用到路径、目标和里程计。</li>
+</ol>
+<p>SLAM 模式更适合赛前采集或制作 Odin 自身的地图，而不是直接替换当前比赛模式。如果回环检测在任务中修正 odom，而场地图和控制器没有按同一坐标链处理，反而可能让固定航点误差突然变化。</p>
+<p>重定位模式理论上最适合“设备重启后仍恢复到同一绝对场地坐标”的长期方案，但当前代码尚未接入它。手册明确说明 <code>/odin1/cloud_slam</code>、<code>/odin1/odom</code>、<code>/odin1/highodom</code> 和 <code>/odin1/path</code> 仍在里程计坐标系发布，需要使用 <code>map → odom</code> TF 才能得到地图系结果。当前导航不读取这条 TF，所以即使 Odin 重定位成功，固定规则地图也不会自动获得对应变换。</p>
+<p>如果未来希望使用重定位模式，需要至少完成：</p>
+<ul>
+<li>用 Odin SLAM 模式或受支持设备生成可靠 <code>.bin</code> 场地图；</li>
+<li>建立 ROS TF2 查询，把机器人位姿统一转换到 <code>map</code>；</li>
+<li>把规则场地图标定到同一个 <code>map</code> 坐标系；</li>
+<li>明确重定位失败、从 odom 回退到 map、再次成功时的状态机行为；</li>
+<li>对 TF 突变设置暂停、重新规划和重新确认机制；</li>
+<li>重新验证点云局部目标、粗导航目标和机械臂对准的时间同步。</li>
+</ul>
+<p>在这些改造完成前，<code>mode=2</code> 并不会自动让当前系统更准；它只是提供了一条当前代码尚未消费的 <code>map → odom</code> 关系。</p>
+<h2 id="十四当前方案的边界与后续优化">十四、当前方案的边界与后续优化</h2>
+<p>这套方案的优点是可解释、针对性强、安全边界明确：每个航点为何存在、每个轴为何动作、何时必须停车，都能从状态和参数中追溯。它也充分利用了比赛固定布局，避免为了“通用”引入更多未经验证的复杂度。</p>
+<p>但它的局限同样明确：</p>
+<ul>
+<li>没有占据栅格、代价地图和动态避障；</li>
+<li>没有基于实测机体速度的轨迹跟踪闭环；</li>
+<li>粗导航依赖赛前规则地图和 Odin 复位原点；</li>
+<li>减速带只被可视化，没有阶段性速度调度；</li>
+<li>点云箱定位主要针对当前近排四列，不是完整 2 × 4 全局定位；</li>
+<li><code>Path</code> 只是预览，不是由独立跟踪器执行的稠密轨迹；</li>
+<li>上下层速度参数存在截断，物理含义需要用实车标定重新统一；</li>
+<li>当前没有消费 <code>map → odom</code>，无法直接利用 Odin 重定位模式的绝对地图能力。</li>
+</ul>
+<p>如果继续迭代，我认为优先级应该是：</p>
+<ol>
+<li>先用 rosbag 建立可复现的定位和控制评估，而不是继续凭体感调参；</li>
+<li>标定 <code>/cmd_vel</code> 到实际前进、横移和转向响应的映射，统一上下层限幅；</li>
+<li>给减速带增加明确的低速航段和通过后稳定检查；</li>
+<li>扩展点云箱体定位的物理行映射，覆盖背面第二箱精对准；</li>
+<li>加入最小化的障碍停车区域检测，而不必立刻引入完整 Nav2；</li>
+<li>若 Odin 里程计在完整任务尺度仍不足，再把重定位模式和 TF2 正式接入，而不是只切一个配置值；</li>
+<li>最后才考虑把语义航点升级为可在线重规划的通用导航层。</li>
+</ol></div> </article> </main> <footer>© 2026 SimonChen · 用 Astro 构建 · <a href="/rss.xml">RSS</a></footer> </div> </body></html>

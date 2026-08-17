@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="zh-CN"> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="一个融合摄像头感知、课表、LLM 与 TTS 的 Raspberry Pi 桌面陪伴项目，包含架构、安装、配置、视觉链路与故障排查。"><meta name="theme-color" content="#f4efe6"><link rel="icon" href="/favicon.svg"><link rel="canonical" href="https://simon20060610.github.io/2026/06/19/Toy2-Raspberry-Pi-Desktop-Companion/"><link rel="alternate" type="application/rss+xml" title="观测记录" href="/rss.xml"><meta property="og:title" content="Toy2.0：基于 Raspberry Pi 的桌宠项目记录 | SimonChen"><meta property="og:description" content="一个融合摄像头感知、课表、LLM 与 TTS 的 Raspberry Pi 桌面陪伴项目，包含架构、安装、配置、视觉链路与故障排查。"><meta property="og:type" content="article"><meta property="og:url" content="https://simon20060610.github.io/2026/06/19/Toy2-Raspberry-Pi-Desktop-Companion/"><meta property="og:image" content="https://simon20060610.github.io/images/avatar.jpg"><title>Toy2.0：基于 Raspberry Pi 的桌宠项目记录 | SimonChen</title><link rel="stylesheet" href="/_astro/_slug_.CTlOeIQq.css"></head> <body> <div class="shell"><header class="site-header"> <a class="brand" href="/"><img src="/images/avatar.jpg" alt=""><span>观测记录</span></a> <nav aria-label="主导航"> <a href="/">首页</a><a href="/archives/">归档</a><a href="/categories/">分类</a><a href="/tags/">标签</a><a href="/about/">关于</a> </nav> </header><main> <article class="article"> <header class="article-header"> <a class="eyebrow" href="/categories/DevLog/">DevLog</a> <h1>Toy2.0：基于 Raspberry Pi 的桌宠项目记录</h1><p class="lead">一个融合摄像头感知、课表、LLM 与 TTS 的 Raspberry Pi 桌面陪伴项目，包含架构、安装、配置、视觉链路与故障排查。</p> <div class="post-meta"><time datetime="2026-06-19T00:00:00.000Z">发布于 2026年6月19日</time><time datetime="2026-07-12T00:00:00.000Z">更新于 2026年7月12日</time></div> <div class="tag-list"><a href="/tags/Raspberry%20Pi/">#Raspberry Pi</a><a href="/tags/PyQt5/">#PyQt5</a><a href="/tags/Computer%20Vision/">#Computer Vision</a><a href="/tags/LLM/">#LLM</a><a href="/tags/TTS/">#TTS</a><a href="/tags/Desktop%20Companion/">#Desktop Companion</a></div> </header> <details class="toc"><summary>文章目录</summary><ol><li class="depth-2"><a href="#项目概览">项目概览</a></li><li class="depth-2"><a href="#项目仓库">项目仓库</a></li><li class="depth-2"><a href="#安全说明">安全说明</a></li><li class="depth-2"><a href="#硬件设备">硬件设备</a></li><li class="depth-2"><a href="#运行环境">运行环境</a></li><li class="depth-2"><a href="#安装流程">安装流程</a></li><li class="depth-2"><a href="#配置">配置</a></li><li class="depth-2"><a href="#使用说明">使用说明</a></li><li class="depth-2"><a href="#视觉方案">视觉方案</a></li><li class="depth-2"><a href="#opencv-说明">OpenCV 说明</a></li><li class="depth-2"><a href="#常用环境变量">常用环境变量</a></li><li class="depth-2"><a href="#故障排查">故障排查</a></li><li class="depth-2"><a href="#小结">小结</a></li></ol></details> <div class="prose"><p>Toy2.0 是一个运行在 Raspberry Pi / Linux 桌面环境上的桌宠项目。它通过摄像头判断使用者是否在座位前，结合课表、时间段和状态提醒生成维尔汀（Vertin）风格的短句，并通过 TTS 播放语音。</p>
+<p>这个项目的目标不是做一个单纯的提醒工具，而是尝试把“桌面陪伴感”和真实环境感知结合起来：设备能看到我是否在座位前，能知道现在大概是什么时间段，也能基于课表和运行状态给出更贴近场景的反馈。</p>
+<!-- more -->
+<h2 id="项目概览">项目概览</h2>
+<p>Toy2.0 当前主要由几部分组成：</p>
+<ul>
+<li>Raspberry Pi 5 作为运行设备</li>
+<li>Raspberry Pi Camera Module 或可被 Picamera2 / libcamera 访问的摄像头</li>
+<li>PyQt5 负责图形界面</li>
+<li>OpenCV / MediaPipe 负责视觉检测</li>
+<li>DeepSeek LLM 负责生成回复文本</li>
+<li>MiniMax TTS 负责语音合成</li>
+<li><code>.ics</code> 课表文件提供日程信息</li>
+</ul>
+<p>背景图片使用《重返未来：1999》官网背景动图，声音基于维尔汀在游戏中的语音录屏内容使用 MiniMax 训练而成。</p>
+<h2 id="项目仓库">项目仓库</h2>
+<p>项目代码已经上传到 GitHub：</p>
+<p><a href="https://github.com/Simon20060610/Raspberry-Pi-desktop-companion">Simon20060610/Raspberry-Pi-desktop-companion</a></p>
+<p>可以通过下面的命令克隆到本地：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">git</span><span style="color:#9ECBFF"> clone</span><span style="color:#9ECBFF"> https://github.com/Simon20060610/Raspberry-Pi-desktop-companion.git</span></span>
+<span class="line"><span style="color:#79B8FF">cd</span><span style="color:#9ECBFF"> Raspberry-Pi-desktop-companion</span></span></code></pre>
+<h2 id="安全说明">安全说明</h2>
+<p>仓库中不应保存真实 API Key、私人课表、运行记忆或生成音频。以下内容都应该只保存在本地环境中：</p>
+<ul>
+<li><code>.env</code></li>
+<li><code>TOY/data/</code></li>
+<li><code>reply.mp3</code></li>
+<li>私人 <code>.ics</code> 课表文件</li>
+<li>任何真实 API Key</li>
+</ul>
+<p>公开仓库只保留示例配置和格式说明。这样项目可以公开展示，也不会把私人配置和运行数据一起暴露出去。</p>
+<h2 id="硬件设备">硬件设备</h2>
+<p>项目当前使用或预期支持的硬件如下：</p>
+<ul>
+<li>Raspberry Pi 5</li>
+<li>Raspberry Pi Camera Module，或可被 Picamera2 / libcamera 访问的摄像头</li>
+<li>扬声器、耳机或 HDMI / USB 音频输出设备</li>
+<li>可显示 PyQt5 图形界面的屏幕</li>
+<li>可访问 DeepSeek LLM 和 MiniMax TTS 的网络环境</li>
+</ul>
+<h2 id="运行环境">运行环境</h2>
+<p>推荐系统与 Python 环境：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">Raspberry</span><span style="color:#9ECBFF"> Pi</span><span style="color:#9ECBFF"> OS</span></span>
+<span class="line"><span style="color:#B392F0">conda</span><span style="color:#9ECBFF"> Python</span><span style="color:#79B8FF"> 3.11</span></span>
+<span class="line"><span style="color:#B392F0">系统</span><span style="color:#9ECBFF"> Python</span><span style="color:#79B8FF"> 3.13</span><span style="color:#9ECBFF"> +</span><span style="color:#9ECBFF"> python3-picamera2</span></span></code></pre>
+<p>项目主程序运行在 conda 环境 <code>toy_env</code> 中。由于 Raspberry Pi OS 的 <code>picamera2/libcamera</code> 通常绑定系统 Python ABI，conda Python 3.11 可能无法直接 <code>import Picamera2</code>。</p>
+<p>为了解决这个问题，项目内置了外部相机 helper：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>conda Python 3.11 主程序</span></span>
+<span class="line"><span>-> 如果无法 import Picamera2</span></span>
+<span class="line"><span>-> 启动 /usr/bin/python3 TOY/picamera_capture.py</span></span>
+<span class="line"><span>-> 系统 Python 负责采集相机帧</span></span>
+<span class="line"><span>-> 原始 RGB 帧通过 stdout 传回主程序</span></span></code></pre>
+<p>正常启动时可能看到类似日志：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>[Camera] Picamera2 is not importable in this Python...</span></span>
+<span class="line"><span>[Camera] External Picamera2 helper started.</span></span>
+<span class="line"><span>[Vision] Using MediaPipe Face Detection</span></span></code></pre>
+<h2 id="安装流程">安装流程</h2>
+<p>创建并进入 conda 环境：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">conda</span><span style="color:#9ECBFF"> create</span><span style="color:#79B8FF"> -n</span><span style="color:#9ECBFF"> toy_env</span><span style="color:#9ECBFF"> python=</span><span style="color:#79B8FF">3.11</span><span style="color:#79B8FF"> -y</span></span>
+<span class="line"><span style="color:#B392F0">conda</span><span style="color:#9ECBFF"> activate</span><span style="color:#9ECBFF"> toy_env</span></span>
+<span class="line"><span style="color:#79B8FF">cd</span><span style="color:#9ECBFF"> ~/Raspberry-Pi-desktop-companion</span></span></code></pre>
+<p>安装 Python 依赖：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">python</span><span style="color:#79B8FF"> -m</span><span style="color:#9ECBFF"> pip</span><span style="color:#9ECBFF"> install</span><span style="color:#79B8FF"> -r</span><span style="color:#9ECBFF"> requirements-toy-env.txt</span></span></code></pre>
+<p>当前 <code>requirements-toy-env.txt</code> 包含：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>PyQt5</span></span>
+<span class="line"><span>flask</span></span>
+<span class="line"><span>ics</span></span>
+<span class="line"><span>mediapipe</span></span>
+<span class="line"><span>openai</span></span>
+<span class="line"><span>opencv-contrib-python-headless==4.11.0.86</span></span>
+<span class="line"><span>pygame</span></span>
+<span class="line"><span>requests</span></span></code></pre>
+<p>检查依赖：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">python</span><span style="color:#9ECBFF"> tools/check_deps.py</span></span></code></pre>
+<p>如果缺包，可以自动安装缺失的 pip 包：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">python</span><span style="color:#9ECBFF"> tools/check_deps.py</span><span style="color:#79B8FF"> --install</span></span></code></pre>
+<p>安装 Raspberry Pi 系统相机包：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">sudo</span><span style="color:#9ECBFF"> apt</span><span style="color:#9ECBFF"> install</span><span style="color:#79B8FF"> -y</span><span style="color:#9ECBFF"> python3-picamera2</span></span></code></pre>
+<p>注意：<code>python3-picamera2</code> 是系统 Python 包，不一定能被 conda 直接导入。项目会在 conda 无法导入 Picamera2 时自动使用 <code>/usr/bin/python3 TOY/picamera_capture.py</code> 采集相机画面。</p>
+<h2 id="配置">配置</h2>
+<p>复制示例配置：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">cp</span><span style="color:#9ECBFF"> .env.example</span><span style="color:#9ECBFF"> .env</span></span></code></pre>
+<p>然后在 <code>.env</code> 中填写自己的密钥和本地路径：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>DEEPSEEK_API_KEY=</span></span>
+<span class="line"><span>DEEPSEEK_BASE_URL=https://api.deepseek.com</span></span>
+<span class="line"><span>DEEPSEEK_MODEL=deepseek-v4-flash</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>MINIMAX_GROUP_ID=</span></span>
+<span class="line"><span>MINIMAX_API_KEY=</span></span>
+<span class="line"><span>MINIMAX_TTS_MODEL=speech-01-turbo</span></span>
+<span class="line"><span>MINIMAX_VOICE_ID=Vertin_clone</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>COMPANION_NAME=companion</span></span>
+<span class="line"><span>SCHEDULE_FILE=schedule.ics</span></span>
+<span class="line"><span>DATA_DIR=data</span></span>
+<span class="line"><span>REPLY_AUDIO_FILE=reply.mp3</span></span></code></pre>
+<p>课表可以放在 <code>TOY/schedule.ics</code>，也可以通过 <code>SCHEDULE_FILE</code> 指向其他本地 <code>.ics</code> 文件。仓库中提供了 <code>TOY/example_schedule.ics</code> 作为格式参考。</p>
+<h2 id="使用说明">使用说明</h2>
+<p>正常启动：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">conda</span><span style="color:#9ECBFF"> activate</span><span style="color:#9ECBFF"> toy_env</span></span>
+<span class="line"><span style="color:#79B8FF">cd</span><span style="color:#9ECBFF"> ~/Raspberry-Pi-desktop-companion</span></span>
+<span class="line"><span style="color:#B392F0">python</span><span style="color:#9ECBFF"> TOY/main.py</span></span></code></pre>
+<p>默认全屏：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>START_FULLSCREEN=1</span></span></code></pre>
+<p>临时使用小窗口调试：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#E1E4E8">START_FULLSCREEN</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">0</span><span style="color:#B392F0"> python</span><span style="color:#9ECBFF"> TOY/main.py</span></span></code></pre>
+<p>切换视觉后端：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#E1E4E8">FACE_DETECT_BACKEND</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">mediapipe</span><span style="color:#B392F0"> python</span><span style="color:#9ECBFF"> TOY/main.py</span></span>
+<span class="line"><span style="color:#E1E4E8">FACE_DETECT_BACKEND</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">yunet</span><span style="color:#B392F0"> python</span><span style="color:#9ECBFF"> TOY/main.py</span></span>
+<span class="line"><span style="color:#E1E4E8">FACE_DETECT_BACKEND</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">haar</span><span style="color:#B392F0"> python</span><span style="color:#9ECBFF"> TOY/main.py</span></span></code></pre>
+<p>调整 MediaPipe 置信度：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#E1E4E8">FACE_DETECT_CONFIDENCE</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">0.75</span><span style="color:#B392F0"> python</span><span style="color:#9ECBFF"> TOY/main.py</span></span></code></pre>
+<p>配置忽略区域，例如屏蔽墙上告示牌区域：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#E1E4E8">FACE_IGNORE_ZONES</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">"0.65,0.10,0.25,0.30"</span><span style="color:#B392F0"> python</span><span style="color:#9ECBFF"> TOY/main.py</span></span></code></pre>
+<p>忽略区域格式：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>x,y,w,h</span></span></code></pre>
+<p>小于等于 <code>1.0</code> 的值会按画面比例解释，也可以写像素值。多个区域用分号分隔：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#E1E4E8">FACE_IGNORE_ZONES</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">"0.65,0.10,0.25,0.30;20,30,180,120"</span><span style="color:#B392F0"> python</span><span style="color:#9ECBFF"> TOY/main.py</span></span></code></pre>
+<h2 id="视觉方案">视觉方案</h2>
+<p>项目入口是：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">python</span><span style="color:#9ECBFF"> TOY/main.py</span></span></code></pre>
+<p>视觉线程位于：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>TOY/vision_thread.py</span></span></code></pre>
+<p>当前默认视觉后端：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>FACE_DETECT_BACKEND=mediapipe</span></span></code></pre>
+<p>整体链路：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Picamera2 / 外部相机 helper</span></span>
+<span class="line"><span>-> 获取 640x480 RGB 帧</span></span>
+<span class="line"><span>-> 灰度/颜色预处理</span></span>
+<span class="line"><span>-> MediaPipe Face Detection 检测人脸</span></span>
+<span class="line"><span>-> 过滤异常框：尺寸比例、最大尺寸、忽略区域等</span></span>
+<span class="line"><span>-> OpenCV 在画面上画识别框</span></span>
+<span class="line"><span>-> 转成 QImage</span></span>
+<span class="line"><span>-> PyQt5 QLabel 显示到左上角摄像头小窗</span></span>
+<span class="line"><span>-> presence_score 做“人在/离开”的状态判断</span></span></code></pre>
+<p>备选后端仍保留：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#E1E4E8">FACE_DETECT_BACKEND</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">yunet</span><span style="color:#B392F0"> python</span><span style="color:#9ECBFF"> TOY/main.py</span></span>
+<span class="line"><span style="color:#E1E4E8">FACE_DETECT_BACKEND</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">haar</span><span style="color:#B392F0"> python</span><span style="color:#9ECBFF"> TOY/main.py</span></span></code></pre>
+<p>YuNet 使用模型：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>TOY/face_detection_yunet_2023mar.onnx</span></span></code></pre>
+<p>MediaPipe 不可用时会自动退回旧方案。YuNet 模型缺失时也会退回 Haar。</p>
+<h2 id="opencv-说明">OpenCV 说明</h2>
+<p>项目使用：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>opencv-contrib-python-headless==4.11.0.86</span></span></code></pre>
+<p>选择 headless 版本的原因：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>主程序不使用 cv2.imshow</span></span>
+<span class="line"><span>画面显示由 PyQt5 完成</span></span>
+<span class="line"><span>OpenCV 只负责图像处理、画框、DNN/YuNet</span></span>
+<span class="line"><span>headless 可以避免 cv2 自带 Qt 插件和 PyQt5 冲突</span></span></code></pre>
+<p>检查 OpenCV：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">python</span><span style="color:#79B8FF"> -c</span><span style="color:#9ECBFF"> "import cv2; print(cv2.__version__)"</span></span></code></pre>
+<p>应输出类似：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>4.11.0</span></span></code></pre>
+<h2 id="常用环境变量">常用环境变量</h2>
+<p>窗口与显示：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>START_FULLSCREEN=1</span></span>
+<span class="line"><span>WINDOW_WIDTH=320</span></span>
+<span class="line"><span>WINDOW_HEIGHT=480</span></span>
+<span class="line"><span>DRAWER_REFRESH_SECONDS=10</span></span>
+<span class="line"><span>BACKGROUND_MEDIA_FILE=main_ui.gif</span></span></code></pre>
+<p>相机与颜色：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>CAMERA_FORMAT=RGB888</span></span>
+<span class="line"><span>CAMERA_COLOR_ORDER=BGR</span></span>
+<span class="line"><span>CAMERA_GRAY_WORLD_STRENGTH=0.65</span></span>
+<span class="line"><span>CAMERA_COLOUR_GAINS=</span></span></code></pre>
+<p>人脸检测：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>FACE_DETECT_BACKEND=mediapipe</span></span>
+<span class="line"><span>FACE_DETECT_CONFIDENCE=0.65</span></span>
+<span class="line"><span>FACE_IGNORE_ZONES=</span></span>
+<span class="line"><span>FACE_DETECT_MIN_SIZE=48</span></span>
+<span class="line"><span>FACE_DETECT_MAX_SIZE_RATIO=0.75</span></span>
+<span class="line"><span>FACE_DETECT_MIN_ASPECT=0.75</span></span>
+<span class="line"><span>FACE_DETECT_MAX_ASPECT=1.35</span></span></code></pre>
+<p>人在 / 离开状态判断：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>AWAY_THRESHOLD_SECONDS=12.0</span></span>
+<span class="line"><span>RETURN_TRIGGER_MIN_AWAY_SECONDS=20.0</span></span>
+<span class="line"><span>PRESENCE_SCORE_MAX=10.0</span></span>
+<span class="line"><span>PRESENCE_SEEN_GAIN=2.5</span></span>
+<span class="line"><span>PRESENCE_MISSED_DECAY=0.45</span></span>
+<span class="line"><span>PRESENCE_LEAVE_SCORE=0.5</span></span></code></pre>
+<p>久坐与睡眠提醒：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>SIT_LIMIT_SECONDS=3600</span></span>
+<span class="line"><span>REMINDER_COOLDOWN_SECONDS=1800</span></span>
+<span class="line"><span>SLEEP_REMINDER_FIRST_HOUR=22</span></span>
+<span class="line"><span>SLEEP_REMINDER_FIRST_MINUTE=0</span></span>
+<span class="line"><span>SLEEP_REMINDER_SECOND_HOUR=22</span></span>
+<span class="line"><span>SLEEP_REMINDER_SECOND_MINUTE=30</span></span></code></pre>
+<h2 id="故障排查">故障排查</h2>
+<p>如果启动时报缺少依赖：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">python</span><span style="color:#9ECBFF"> tools/check_deps.py</span></span>
+<span class="line"><span style="color:#B392F0">python</span><span style="color:#9ECBFF"> tools/check_deps.py</span><span style="color:#79B8FF"> --install</span></span></code></pre>
+<p>如果 Picamera2 在 conda 中无法导入，先确认系统包存在：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">sudo</span><span style="color:#9ECBFF"> apt</span><span style="color:#9ECBFF"> install</span><span style="color:#79B8FF"> -y</span><span style="color:#9ECBFF"> python3-picamera2</span></span></code></pre>
+<p>如果 OpenCV 和 PyQt5 出现 Qt 插件冲突，重新安装 headless 版本：</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">python</span><span style="color:#79B8FF"> -m</span><span style="color:#9ECBFF"> pip</span><span style="color:#9ECBFF"> uninstall</span><span style="color:#79B8FF"> -y</span><span style="color:#9ECBFF"> opencv-python</span><span style="color:#9ECBFF"> opencv-contrib-python</span><span style="color:#9ECBFF"> opencv-python-headless</span><span style="color:#9ECBFF"> opencv-contrib-python-headless</span></span>
+<span class="line"><span style="color:#B392F0">python</span><span style="color:#79B8FF"> -m</span><span style="color:#9ECBFF"> pip</span><span style="color:#9ECBFF"> install</span><span style="color:#79B8FF"> --no-cache-dir</span><span style="color:#9ECBFF"> opencv-contrib-python-headless==</span><span style="color:#79B8FF">4.11.0.86</span></span></code></pre>
+<p>如果 AI 或 TTS 无响应，需要检查 <code>.env</code> 中的 DeepSeek 和 MiniMax 配置，并确认设备联网情况。</p>
+<h2 id="小结">小结</h2>
+<p>Toy2.0 目前更像是一个把多个技术点串起来的桌面陪伴实验：它涉及 Raspberry Pi 相机、PyQt5 桌面界面、OpenCV / MediaPipe 视觉检测、LLM 文本生成、TTS 语音输出和课表数据解析。</p>
+<p>后续如果继续完善，我希望它不只是“能说话的桌宠”，而是能逐渐拥有更稳定的场景感知能力，并且在提醒、陪伴和日常记录之间找到一个自然的平衡。</p></div> </article> </main> <footer>© 2026 SimonChen · 用 Astro 构建 · <a href="/rss.xml">RSS</a></footer> </div> </body></html>
